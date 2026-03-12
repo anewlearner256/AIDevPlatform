@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker compose:*)",
+      "mcp__pencil__get_editor_state",
+      "mcp__pencil__get_guidelines",
+      "mcp__pencil__batch_design",
+      "mcp__pencil__batch_get"
+    ]
+  }
+}
