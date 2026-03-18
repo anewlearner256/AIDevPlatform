@@ -6,7 +6,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import loguru
 
 from config.settings import settings
-from api.routers import requirements, tasks, projects, executions
+from api.routers import requirements, tasks, projects, executions, auth
 from api.middleware import logging_middleware, error_handler
 
 # 配置日志
@@ -103,6 +103,13 @@ def add_routers(app: FastAPI):
         prefix=f"{settings.api_prefix}/executions",
         tags=["执行管理"]
     )
+
+    app.include_router(
+        auth.router,
+        prefix=f"{settings.api_prefix}/auth",
+        tags=["认证"]
+    )
+
 
 
 def add_lifespan_events(app: FastAPI):

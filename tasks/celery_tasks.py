@@ -27,7 +27,10 @@ from services.task_service import TaskService
 from services.execution_service import ExecutionService
 from core.agents.requirement_agent import RequirementAgent
 from core.agents.task_planner import TaskPlannerAgent
-from config.agents_config import AGENTS_CONFIG
+from core.agents.development_agent import DevelopmentAgent
+from core.agents.review_agent import ReviewAgent
+from core.agents.test_agent import TestAgent
+from models.schemas import TaskCreate
 
 logger = loguru.logger
 
@@ -74,17 +77,15 @@ def process_requirement_analysis(self, requirement_id: str) -> Dict[str, Any]:
                 await session.commit()
 
                 # 初始化需求智能体
-                requirement_agent = RequirementAgent(
-                    name="requirement_analyzer",
-                    config=AGENTS_CONFIG["requirement"]
-                )
+                requirement_agent = RequirementAgent()
 
                 # 准备输入数据
                 input_data = {
-                    "requirement_id": requirement_id,
-                    "document_content": requirement.description or "",
+                    "title": requirement.title,
+                    "description": requirement.description or "",
                     "document_path": requirement.document_path,
                     "project_id": requirement.project_id,
+                    "metadata": {"requirement_id": requirement_id},
                 }
 
                 # 执行需求分析
@@ -156,10 +157,7 @@ def task_planning_task(self, requirement_id: str) -> Dict[str, Any]:
                     raise ValueError(f"需求不存在或未分析: {requirement_id}")
 
                 # 初始化任务规划智能体
-                task_planner = TaskPlannerAgent(
-                    name="task_planner",
-                    config=AGENTS_CONFIG["task_planner"]
-                )
+                task_planner = TaskPlannerAgent()
 
                 # 准备输入数据
                 input_data = {
@@ -177,19 +175,19 @@ def task_planning_task(self, requirement_id: str) -> Dict[str, Any]:
 
                 for task_data in planning_result.get("tasks", []):
                     # 转换任务数据格式
-                    task_create_data = {
-                        "project_id": requirement.project_id,
-                        "requirement_id": requirement_id,
-                        "title": task_data.get("title", "未命名任务"),
-                        "description": task_data.get("description", ""),
-                        "task_type": task_data.get("type", "development"),
-                        "priority": task_data.get("priority", "medium"),
-                        "estimated_hours": task_data.get("estimated_hours", 1.0),
-                        "metadata": {
+                    task_create_data = TaskCreate(
+                        project_id=requirement.project_id,
+                        requirement_id=requirement_id,
+                        title=task_data.get("title", "未命名任务"),
+                        description=task_data.get("description", ""),
+                        task_type=task_data.get("task_type", "development"),
+                        priority=task_data.get("priority", "medium"),
+                        estimated_hours=float(task_data.get("estimated_hours", 1.0)),
+                        metadata={
                             "dependencies": task_data.get("dependencies", []),
                             "skills_required": task_data.get("skills_required", []),
-                        }
-                    }
+                        },
+                    )
 
                     # 创建任务
                     created_task = await task_service.create_task(task_create_data)
@@ -334,52 +332,76 @@ def execute_standard_workflow(self, task_id: str) -> Dict[str, Any]:
 
 
 async def execute_development_workflow(task: TaskModel, execution: TaskExecutionModel) -> Dict[str, Any]:
-    """执行开发工作流"""
-    # TODO: 实现开发智能体集成
+    """执行开发工作流。"""
     logger.info(f"执行开发工作流: {task.id}")
 
-    # 模拟开发过程
-    await asyncio.sleep(2)
+    agent = DevelopmentAgent()
+    result = await agent.execute_with_retry(
+        {
+            "task_description": task.description or task.title,
+            "task_title": task.title,
+            "technical_requirements": task.metadata.get("technical_requirements", {}),
+            "code_context": task.metadata.get("code_context", {}),
+            "language": task.metadata.get("language", "python"),
+        }
+    )
 
     return {
         "status": "success",
-        "code_generated": True,
-        "files": ["main.py", "utils.py"],
-        "language": "python",
+        "code_generated": bool(result.get("generated_code")),
+        "files": list((result.get("generated_code") or {}).keys()),
+        "language": result.get("language", "python"),
+        "details": result,
     }
 
 
 async def execute_review_workflow(task: TaskModel, execution: TaskExecutionModel) -> Dict[str, Any]:
-    """执行评审工作流"""
-    # TODO: 实现评审智能体集成
+    """执行评审工作流。"""
     logger.info(f"执行评审工作流: {task.id}")
 
-    # 模拟评审过程
-    await asyncio.sleep(1)
+    agent = ReviewAgent()
+    result = await agent.execute_with_retry(
+        {
+            "code": task.metadata.get("generated_code", {}),
+            "code_metadata": {
+                "task_id": task.id,
+                "project_id": task.project_id,
+                "language": task.metadata.get("language", "python"),
+            },
+        }
+    )
 
     return {
         "status": "success",
-        "review_passed": True,
-        "score": 85.5,
-        "issues_found": 3,
-        "suggestions": ["添加注释", "优化性能", "改进错误处理"],
+        "review_passed": bool(result.get("passed", True)),
+        "score": result.get("overall_score", 0),
+        "issues_found": len(result.get("issues", [])),
+        "suggestions": result.get("suggestions", []),
+        "details": result,
     }
 
 
 async def execute_test_workflow(task: TaskModel, execution: TaskExecutionModel) -> Dict[str, Any]:
-    """执行测试工作流"""
-    # TODO: 实现测试智能体集成
+    """执行测试工作流。"""
     logger.info(f"执行测试工作流: {task.id}")
 
-    # 模拟测试过程
-    await asyncio.sleep(1.5)
+    agent = TestAgent()
+    result = await agent.execute_with_retry(
+        {
+            "code": task.metadata.get("generated_code", {}),
+            "language": task.metadata.get("language", "python"),
+            "test_type": task.metadata.get("test_type", "unit"),
+        }
+    )
 
+    summary = result.get("summary", {})
     return {
         "status": "success",
-        "tests_passed": True,
-        "coverage": 92.3,
-        "tests_run": 15,
-        "failures": 0,
+        "tests_passed": summary.get("failed", 0) == 0,
+        "coverage": result.get("coverage", 0.0),
+        "tests_run": summary.get("total", 0),
+        "failures": summary.get("failed", 0),
+        "details": result,
     }
 
 
@@ -396,8 +418,16 @@ def execute_background_workflow(self, workflow_type: str, data: Dict[str, Any]) 
         执行结果
     """
     logger.info(f"执行后台工作流: {workflow_type}")
-    # TODO: 实现具体后台工作流
-    return {"workflow_type": workflow_type, "status": "completed", "data": data}
+
+    handlers = {
+        "development": execute_standard_workflow,
+        "high_priority": execute_high_priority_workflow,
+    }
+
+    if workflow_type in handlers and data.get("task_id"):
+        handlers[workflow_type].delay(data["task_id"])
+
+    return {"workflow_type": workflow_type, "status": "accepted", "data": data}
 
 
 @app.task(base=BaseCeleryTask)
