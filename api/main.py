@@ -3,14 +3,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-import loguru
+try:
+    import loguru
+    logger = loguru.logger
+except Exception:  # noqa: BLE001
+    import logging
+    logger = logging.getLogger(__name__)
 
 from config.settings import settings
-from api.routers import requirements, tasks, projects, executions
+from api.routers import requirements, tasks, projects, executions, auth, observability, plugins
 from api.middleware import logging_middleware, error_handler
+from api.middleware.request_context import request_context_middleware
+from core.plugins import plugin_manager
 
 # 配置日志
-logger = loguru.logger
 
 def create_app() -> FastAPI:
     """创建FastAPI应用实例"""
@@ -59,6 +65,7 @@ def add_middlewares(app: FastAPI):
     )
 
     # 自定义中间件
+    app.middleware("http")(request_context_middleware)
     app.middleware("http")(logging_middleware)
     app.middleware("http")(error_handler)
 
@@ -104,6 +111,25 @@ def add_routers(app: FastAPI):
         tags=["执行管理"]
     )
 
+    app.include_router(
+        auth.router,
+        prefix=f"{settings.api_prefix}/auth",
+        tags=["认证"]
+    )
+
+    app.include_router(
+        observability.router,
+        prefix=f"{settings.api_prefix}/observability",
+        tags=["可观测性"]
+    )
+
+    app.include_router(
+        plugins.router,
+        prefix=f"{settings.api_prefix}/plugins",
+        tags=["插件系统"]
+    )
+
+
 
 def add_lifespan_events(app: FastAPI):
     """添加生命周期事件"""
@@ -125,6 +151,9 @@ def add_lifespan_events(app: FastAPI):
         from utils.llm_client import init_llm_clients
         init_llm_clients()
 
+        # 初始化插件系统
+        await plugin_manager.initialize()
+
         logger.info("应用启动完成")
 
     @app.on_event("shutdown")
@@ -135,6 +164,9 @@ def add_lifespan_events(app: FastAPI):
         # 清理资源
         from models.database import close_db
         await close_db()
+
+        # 关闭插件系统
+        await plugin_manager.shutdown()
 
         logger.info("应用关闭完成")
 

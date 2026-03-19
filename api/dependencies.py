@@ -194,4 +194,10 @@ __all__ = [
     "require_project_owner",
     "default_rate_limiter",
     "strict_rate_limiter",
+    "get_current_tenant",
 ]
+
+async def get_current_tenant(user: dict = Depends(get_current_user)) -> str:
+    """获取当前租户ID（从认证信息或默认值推导）。"""
+    tenant_id = user.get("tenant_id") if isinstance(user, dict) else None
+    return tenant_id or "public"
