@@ -7,9 +7,13 @@ import traceback
 from typing import Callable
 from fastapi import Request, Response, HTTPException
 from fastapi.responses import JSONResponse
-import loguru
+try:
+    import loguru
+    logger = loguru.logger
+except Exception:  # noqa: BLE001
+    import logging
+    logger = logging.getLogger(__name__)
 
-logger = loguru.logger
 
 async def error_handler(
     request: Request,

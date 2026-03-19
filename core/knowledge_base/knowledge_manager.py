@@ -12,12 +12,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
-import loguru
+try:
+    import loguru
+    logger = loguru.logger
+except Exception:  # noqa: BLE001
+    import logging
+    logger = logging.getLogger(__name__)
 
 from config.settings import settings
 from .retrieval import RetrievalResult, lexical_score
 
-logger = loguru.logger
 
 
 @dataclass

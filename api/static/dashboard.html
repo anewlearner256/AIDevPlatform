@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Dev Platform 监控仪表板</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; background:#f5f7fb; }
+    .card { background:#fff; padding:16px; margin-bottom:16px; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+    h1 { margin-top:0; }
+    pre { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; overflow:auto; }
+    .muted{ color:#64748b; }
+  </style>
+</head>
+<body>
+  <h1>AI Dev Platform 监控仪表板</h1>
+  <p class="muted">数据来源：<code>/api/v1/observability/metrics/system</code></p>
+
+  <div class="card">
+    <h3>系统指标</h3>
+    <pre id="system">loading...</pre>
+  </div>
+
+  <div class="card">
+    <h3>健康状态</h3>
+    <pre id="health">loading...</pre>
+  </div>
+
+  <script>
+    async function load() {
+      const [system, health] = await Promise.all([
+        fetch('/api/v1/observability/metrics/system').then(r => r.json()),
+        fetch('/api/v1/observability/metrics/health').then(r => r.json())
+      ]);
+      document.getElementById('system').textContent = JSON.stringify(system, null, 2);
+      document.getElementById('health').textContent = JSON.stringify(health, null, 2);
+    }
+    load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>

@@ -5,12 +5,16 @@ from __future__ import annotations
 import time
 from typing import Dict, Any, Optional, List
 
-import loguru
+try:
+    import loguru
+    logger = loguru.logger
+except Exception:  # noqa: BLE001
+    import logging
+    logger = logging.getLogger(__name__)
 
 from core.agents.agent_orchestrator import get_agent_orchestrator
 from models.schemas import AgentRequest, AgentResponse
 
-logger = loguru.logger
 
 
 class AgentService:
