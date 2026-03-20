@@ -87,6 +87,6 @@ secrets.yaml
 *.crt
 
 # Project specific
-knowledge_base/
+/knowledge_base/
 uploads/
 execution_sandboxes/

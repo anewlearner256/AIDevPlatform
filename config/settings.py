@@ -63,6 +63,11 @@ class Settings(BaseSettings):
         description="Celery结果后端URL"
     )
 
+
+    # 多租户配置
+    enable_multitenant: bool = Field(default=True, description="是否启用多租户")
+    default_tenant_id: str = Field(default="public", description="默认租户ID")
+
     # CORS配置
     cors_origins: List[str] = Field(
         default=["http://localhost:3000", "http://localhost:8000"],
