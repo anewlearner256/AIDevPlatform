@@ -3,6 +3,7 @@
 from .llm_client import LLMClient, init_llm_clients
 from .logging_config import setup_logging
 from .file_utils import save_uploaded_file, read_file_safely
+from .observability import observability
 
 __all__ = [
     "LLMClient",
@@ -10,4 +11,5 @@ __all__ = [
     "setup_logging",
     "save_uploaded_file",
     "read_file_safely",
+    "observability",
 ]

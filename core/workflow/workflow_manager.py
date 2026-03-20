@@ -9,7 +9,7 @@ import uuid
 import loguru
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Any, Optional, List, Type, Callable
+from typing import Dict, Any, Optional, List, Type, Callable, Union
 from dataclasses import dataclass, field
 
 from langgraph.graph import StateGraph, END

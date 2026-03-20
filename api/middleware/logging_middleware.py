@@ -6,9 +6,15 @@
 import time
 from typing import Callable
 from fastapi import Request, Response
-import loguru
+try:
+    import loguru
+    logger = loguru.logger
+except Exception:  # noqa: BLE001
+    import logging
+    logger = logging.getLogger(__name__)
 
-logger = loguru.logger
+from utils.observability import observability
+
 
 async def logging_middleware(
     request: Request,
@@ -22,7 +28,10 @@ async def logging_middleware(
     # 获取请求信息
     method = request.method
     url = str(request.url)
+    path = request.url.path
     client_ip = request.client.host if request.client else "unknown"
+    request_id = getattr(request.state, "request_id", "n/a")
+    tenant_id = getattr(request.state, "tenant_id", "public")
 
     # 跳过健康检查的详细日志
     if url.endswith("/health") or url.endswith("/"):
@@ -30,7 +39,7 @@ async def logging_middleware(
         return response
 
     # 记录请求信息
-    logger.info(f"请求开始: {method} {url} from {client_ip}")
+    logger.info(f"请求开始: {method} {url} from {client_ip} request_id={request_id} tenant={tenant_id}")
 
     try:
         # 处理请求
@@ -43,9 +52,10 @@ async def logging_middleware(
         logger.info(
             f"请求完成: {method} {url} - "
             f"状态: {response.status_code} - "
-            f"耗时: {process_time:.3f}s"
+            f"耗时: {process_time:.3f}s request_id={request_id} tenant={tenant_id}"
         )
 
+        observability.record_request(path, tenant_id, is_error=response.status_code >= 500)
         return response
 
     except Exception as e:
